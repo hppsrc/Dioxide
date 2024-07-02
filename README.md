@@ -1,2 +1,2 @@
 # Dioxide
-Dioxide, is a script that tries to be the most similar to Zioxide but made in Batch Windows.
+Dioxide, is a script that tries to be the most similar to Zoxide but made in Batch Windows.
