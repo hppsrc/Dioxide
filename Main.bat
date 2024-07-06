@@ -3,9 +3,11 @@
 
 @ECHO OFF
 
+@REM ========== CONFIG SECTION ==========
+
 : Variables
-SET BUILD=70519
-SET VERSION=0.4.0
+SET BUILD=70617
+SET VERSION=0.5.0
 SET VERSION_STATUS=ALPHA
 SET PR_TITLE=%CD%
 SET DIOXIDE_PATH=%LOCALAPPDATA%\Hppsrc\Dioxide\
@@ -16,12 +18,14 @@ IF "%1"=="-h" GOTO :HELP                @REM Help msg
 IF "%1"=="-i" GOTO :PREINSTALL          @REM Install
 IF "%1"=="-hd" GOTO :HELP               @REM Help msg with extra commands
 
-IF "%1"=="-c" ( DEL %DIOXIDE_COMMON%>nul 2>&1 & ECHO Dioxide: folder registry deleted & GOTO :EOF ) & @REM Deletes the folder registry
-IF "%1"=="-v" ( ECHO Dioxide %VERSION% & GOTO :EOF )                                                & @REM Version
+IF "%1"=="-c" ( DEL %DIOXIDE_COMMON%>nul 2>&1 & ECHO Dioxide: Folder registry deleted & GOTO :EOF ) & @REM Deletes the folder registry
+IF "%1"=="-v" ( ECHO Dioxide %VERSION% ^(%BUILD%^) & GOTO :EOF )                                                & @REM Version
 
 IF "%1"=="-fi" GOTO :PREINSTALL         @REM Force install / same as force update
 IF "%1"=="-ig" GOTO :IGNORE_RUN         @REM Ignore path and run Dioxide everywhere (toggleable)
 IF "%1"=="-d" GOTO :DEV_MODE            @REM Enable echoing (toogleable)
+IF "%1"=="-a" GOTO :ADM_MODE            @REM Disable admin priv for install (toogleable)
+IF "%1"=="-b" GOTO :CREATE_BK           @REM Enable create backups for old builds (toogleable)
 
 : Check if .dioxide_run exist run dioxide as normal
 IF EXIST "%DIOXIDE_PATH%.dioxide_run" GOTO :RUN
@@ -34,6 +38,8 @@ IF "%~d0%~p0"=="%DIOXIDE_PATH%bin\" ( GOTO :PRERUN ) ELSE (
     ECHO Detected that this is not a regular Dioxide run, running installation process.
     GOTO :PREINSTALL
 )
+
+@REM ========== EXECUTE SECTION ==========
 
 : Checks what Dioxide action to run
 :PRERUN
@@ -96,14 +102,20 @@ ECHO NOT YET
 PAUSE
 GOTO :CLOSE_RUN
 
+@REM ========== INSTALL SECTION ==========
+
+: Check if skip admin check or is a new version
 :PREINSTALL
 
 TITLE Dioxide install %VERSION%
 
+: Check if .disable_adm exist and skip admin check
+IF EXIST "%DIOXIDE_PATH%.disable_adm" GOTO :UPDATE_CHECK
+
 : Get Admin priv
 NET SESSION >nul 2>&1
 IF %ERRORLEVEL% == 0 (
-    IF "%1"=="-fi" GOTO :CONTINUE_INSTALL
+    ECHO.
 ) ELSE (
     ECHO Not running as administrator, restarting script.
     TIMEOUT /T 1 /NOBREAK > nul
@@ -130,6 +142,10 @@ IF %ERRORLEVEL% == 0 (
 CLS
 
 : Check if already installed
+:UPDATE_CHECK
+
+IF "%1"=="-fi" GOTO :CONTINUE_INSTALL
+
 IF EXIST %DIOXIDE_PATH%bin\d.bat SET DIOXIDE_CHECK=d.bat
 IF EXIST %DIOXIDE_PATH%bin\di.bat ( SET DIOXIDE_CHECK=di.bat ) ELSE ( GOTO :INSTALL)
 
@@ -153,7 +169,7 @@ IF DEFINED INSTALLED_VERSION (
         ECHO Installed Script:  %INSTALLED_VERSION% ^(%INSTALLED_BUILD%^)
         ECHO Current Script:    %VERSION% ^(%BUILD%^)
         ECHO.
-        ECHO Do you want to upgrade Dioxide to the version %VERSION%?
+        ECHO Do you want to upgrade Dioxide to the version %VERSION% ^(%BUILD%^)?
 
         CHOICE /C YN /M "Choose"
 
@@ -167,7 +183,7 @@ IF DEFINED INSTALLED_VERSION (
         ECHO Installed Script:  %INSTALLED_VERSION% ^(%INSTALLED_BUILD%^)
         ECHO Current Script:    %VERSION% ^(%BUILD%^)
         ECHO.
-        ECHO Do you want to go back to this previous Dioxide version %VERSION%?
+        ECHO Do you want to go back to this previous Dioxide version %VERSION% ^(%BUILD%^)?
         ECHO.
         ECHO Remember that this implies that many functions of Dioxide may stop working.
         ECHO If you are installing this because the current version has a bug please report it on github.
@@ -206,6 +222,12 @@ IF %ERRORLEVEL%==2 GOTO :CLOSE
 : Install Dioxide
 :CONTINUE_INSTALL
 
+: Create backup of prev version
+IF EXIST "%DIOXIDE_PATH%.create_back" (
+    MKDIR %DIOXIDE_PATH%bin\old\>nul 2>&1
+    COPY %DIOXIDE_PATH%bin\d.bat %DIOXIDE_PATH%bin\old\Dioxide_%BUILD%_.bat>nul 2>&1
+)
+
 CLS
 
 ECHO Creating directories...
@@ -227,6 +249,8 @@ EXIT
 PAUSE
 
 GOTO :CLOSE
+
+@REM ========== MSG SECTION ==========
 
 : Display Help msg
 :HELP
@@ -254,33 +278,43 @@ IF "%1"=="-hd" (
     ECHO    -fi     Forces installation or upgrade.
     ECHO    -ig     Allows to run a Dioxide script anywhere.
     ECHO    -d      Enables echo on each execution, useful for debugging.
+    ECHO    -a      Enable or disable administrator privileges check for installation.
+    ECHO    -b      Create backup files of previous builds.
 ) ELSE (
     ECHO    -hd     Displays help for dev commands.
 )
 
 GOTO :EOF
 
+@REM ========== ACTIONS SECTION ==========
+
 : Add .dioxide_run to run anyway here
 :IGNORE_RUN
-
-IF EXIST %DIOXIDE_PATH%.dioxide_run (
-    DEL %DIOXIDE_PATH%.dioxide_run
-) ELSE (
-    COPY /y nul %DIOXIDE_PATH%.dioxide_run >nul
-)
-
+IF EXIST %DIOXIDE_PATH%.dioxide_run ( DEL %DIOXIDE_PATH%.dioxide_run ) ELSE ( COPY /y nul %DIOXIDE_PATH%.dioxide_run >nul )
 GOTO :EOF
 
 : Add .enable_dev to enable echo
 :DEV_MODE
-
-IF EXIST %DIOXIDE_PATH%.enable_dev (
-    DEL %DIOXIDE_PATH%.enable_dev
-) ELSE (
-    COPY /y nul %DIOXIDE_PATH%.enable_dev >nul
-)
-
+IF EXIST %DIOXIDE_PATH%.enable_dev ( DEL %DIOXIDE_PATH%.enable_dev ) ELSE ( COPY /y nul %DIOXIDE_PATH%.enable_dev >nul )
 GOTO :EOF
+
+: Add .disable_adm to disable admin priv check at install
+:ADM_MODE
+IF EXIST %DIOXIDE_PATH%.disable_adm (
+    DEL %DIOXIDE_PATH%.disable_adm
+    ECHO Dioxide: Admin check ENABLED
+) ELSE ( 
+    COPY /y nul %DIOXIDE_PATH%.disable_adm >nul
+    ECHO Dioxide: Admin check DISABLED
+)
+GOTO :EOF
+
+: Add .create_back to create backups of prevs builds
+:CREATE_BK 
+IF EXIST %DIOXIDE_PATH%.create_back ( DEL %DIOXIDE_PATH%.create_back ) ELSE (  COPY /y nul %DIOXIDE_PATH%.create_back >nul )
+GOTO :EOF
+
+@REM ========== CLOSE SECTION ==========
 
 : Exit script but not close CMD
 :CLOSE
