@@ -4,19 +4,30 @@
 @ECHO OFF
 
 : Variables
-SET BUILD=70416
-SET VERSION=0.3.0
+SET BUILD=70519
+SET VERSION=0.4.0
 SET VERSION_STATUS=ALPHA
 SET PR_TITLE=%CD%
 SET DIOXIDE_PATH=%LOCALAPPDATA%\Hppsrc\Dioxide\
+SET DIOXIDE_COMMON=%DIOXIDE_PATH%common\data.txt
 
 : Check args
+IF "%1"=="-h" GOTO :HELP                @REM Help msg
 IF "%1"=="-i" GOTO :PREINSTALL          @REM Install
-IF "%1"=="-fi" GOTO :PREINSTALL         @REM Force install / Same as force update
-IF "%1"=="-ig" GOTO :IGNORE_RUN         @REM Ignore path and run Dioxide as normal (toggleable)
+IF "%1"=="-hd" GOTO :HELP               @REM Help msg with extra commands
 
-: Check if current directory has .dioxide_run and run dioxide as normal
-IF EXIST ".dioxide_run" GOTO :RUN
+IF "%1"=="-c" ( DEL %DIOXIDE_COMMON%>nul 2>&1 & ECHO Dioxide: folder registry deleted & GOTO :EOF ) & @REM Deletes the folder registry
+IF "%1"=="-v" ( ECHO Dioxide %VERSION% & GOTO :EOF )                                                & @REM Version
+
+IF "%1"=="-fi" GOTO :PREINSTALL         @REM Force install / same as force update
+IF "%1"=="-ig" GOTO :IGNORE_RUN         @REM Ignore path and run Dioxide everywhere (toggleable)
+IF "%1"=="-d" GOTO :DEV_MODE            @REM Enable echoing (toogleable)
+
+: Check if .dioxide_run exist run dioxide as normal
+IF EXIST "%DIOXIDE_PATH%.dioxide_run" GOTO :RUN
+
+: Check if .enable_dev exist and enable echoing
+IF EXIST "%DIOXIDE_PATH%.enable_dev" ECHO ON
 
 : Check path ("Is installed?")
 IF "%~d0%~p0"=="%DIOXIDE_PATH%bin\" ( GOTO :PRERUN ) ELSE (
@@ -32,7 +43,7 @@ IF ["%~n0"]==["d"] (
     GOTO :D_RUN
 )
 
-: Run inteactive dioxide
+: Run interactive dioxide
 IF ["%~n0"]==["di"] (
     GOTO :DI_RUN
 )
@@ -40,15 +51,42 @@ IF ["%~n0"]==["di"] (
 : Run d functions
 :D_RUN
 
-IF ["%1"]==[""] ( CD %userprofile% ) ELSE (
+IF "%1"=="" ( CD %userprofile% ) ELSE (
 
-    @REM TODO CHECK IF NOT IN COMMON FOLDER
+    : Check if folder is on same dir
+    IF EXIST %CD%\%1\ (
 
-    IF NOT EXIST %CD%\%1\ (
-        ECHO Dioxide: no match found
+        CD %CD%\%1>nul
+
+        IF NOT EXIST %DIOXIDE_PATH%common\data.txt ( COPY /y nul %DIOXIDE_PATH%common\data.txt >nul )
+        
+        IF NOT "%1"==".." (
+
+            ECHO %CD%\%1>>%DIOXIDE_PATH%common\data.txt
+
+        )
+
     ) ELSE (
-        CD %CD%\%1>nul 2>&1
+
+        : Check if folder is a dir
+        IF EXIST %1\ (
+
+            CD /d %1>nul
+
+            IF NOT EXIST %DIOXIDE_COMMON% ( COPY /y nul %DIOXIDE_COMMON% >nul )
+            
+            ECHO %1>>%DIOXIDE_COMMON%
+
+        ) ELSE (
+
+            @REM TODO CHECK FULL PATH
+            @REM TODO CHECK IF NOT IN COMMON FOLDER
+            ECHO Dioxide: No match found
+
+        )
+
     )
+
 )
 
 GOTO :CLOSE_RUN
@@ -69,11 +107,20 @@ IF %ERRORLEVEL% == 0 (
 ) ELSE (
     ECHO Not running as administrator, restarting script.
     TIMEOUT /T 1 /NOBREAK > nul
-
-    @REM TODO CHECK IF -I OR -FI
         
     ECHO Set UAC = CreateObject^("Shell.Application"^) > "%temp%\elevate.vbs"
-    ECHO UAC.ShellExecute "%~s0", "-i", "", "runas", 1 >> "%temp%\elevate.vbs"
+
+    IF "%1"=="" (
+        ECHO UAC.ShellExecute "%~s0", "-i", "", "runas", 1 >> "%temp%\elevate.vbs"
+    )
+
+    IF "%1"=="-i" (
+        ECHO UAC.ShellExecute "%~s0", "-i", "", "runas", 1 >> "%temp%\elevate.vbs"
+    )
+    
+    IF "%1"=="-fi" (
+        ECHO UAC.ShellExecute "%~s0", "-fi", "", "runas", 1 >> "%temp%\elevate.vbs"
+    )
         
     "%temp%\elevate.vbs"
     DEL "%temp%\elevate.vbs"
@@ -169,11 +216,8 @@ ECHO Creating files...
 COPY %~f0 %DIOXIDE_PATH%bin\d.bat>nul 2>&1
 COPY %~f0 %DIOXIDE_PATH%bin\di.bat>nul 2>&1
 
-ECHO Add to PATH...
-ECHO %PATH%>nul | FINDSTR /C:"%DIOXIDE_PATH%bin" >nul
-IF %ERRORLEVEL% NEQ 0 (
-    SETX PATH "%PATH%;%DIOXIDE_PATH%bin"
-)
+ECHO Add to PATH... 
+ECHO TO^(re^)DO
 
 ECHO.
 ECHO Dioxide %VERSION% ^(%BUILD%^) was installed on your system, you can now use it in your terminal.
@@ -184,13 +228,56 @@ PAUSE
 
 GOTO :CLOSE
 
+: Display Help msg
+:HELP
+
+ECHO Dioxide %VERSION% ^(%BUILD%^)
+ECHO @Hppsrc on Twitter
+ECHO https://www.github.com/Hppsrc/Dioxide
+ECHO.
+ECHO A Zoxide clone made using Windows Batch
+ECHO. 
+ECHO Usage:
+ECHO    d ^<Directory/Path/Command^>
+ECHO.
+ECHO Commands:
+ECHO    nothing here yet...
+ECHO.
+ECHO Options:
+ECHO    -h      Get this text.
+ECHO    -i      Install Dioxide.
+ECHO    -c      Clears the folder registry.
+ECHO    -v      Prints the version.
+IF "%1"=="-hd" (
+    ECHO.
+    ECHO DEV Commands
+    ECHO    -fi     Forces installation or upgrade.
+    ECHO    -ig     Allows to run a Dioxide script anywhere.
+    ECHO    -d      Enables echo on each execution, useful for debugging.
+) ELSE (
+    ECHO    -hd     Displays help for dev commands.
+)
+
+GOTO :EOF
+
 : Add .dioxide_run to run anyway here
 :IGNORE_RUN
 
-IF EXIST .dioxide_run (
-    DEL .dioxide_run
+IF EXIST %DIOXIDE_PATH%.dioxide_run (
+    DEL %DIOXIDE_PATH%.dioxide_run
 ) ELSE (
-    COPY /y nul .dioxide_run >nul
+    COPY /y nul %DIOXIDE_PATH%.dioxide_run >nul
+)
+
+GOTO :EOF
+
+: Add .enable_dev to enable echo
+:DEV_MODE
+
+IF EXIST %DIOXIDE_PATH%.enable_dev (
+    DEL %DIOXIDE_PATH%.enable_dev
+) ELSE (
+    COPY /y nul %DIOXIDE_PATH%.enable_dev >nul
 )
 
 GOTO :EOF
