@@ -6,10 +6,9 @@
 @REM ========== CONFIG SECTION ==========
 
 : Variables
-SET BUILD=70617
-SET VERSION=0.5.0
+SET BUILD=70813
+SET VERSION=0.6.0
 SET VERSION_STATUS=ALPHA
-SET PR_TITLE=%CD%
 SET DIOXIDE_PATH=%LOCALAPPDATA%\Hppsrc\Dioxide\
 SET DIOXIDE_COMMON=%DIOXIDE_PATH%common\data.txt
 
@@ -57,20 +56,19 @@ IF ["%~n0"]==["di"] (
 : Run d functions
 :D_RUN
 
-IF "%1"=="" ( CD %userprofile% ) ELSE (
+IF "%1"=="" ( 
+
+    CD %userprofile%
+    GOTO :CLOSE_RUN
+
+) ELSE (
 
     : Check if folder is on same dir
     IF EXIST %CD%\%1\ (
 
         CD %CD%\%1>nul
-
-        IF NOT EXIST %DIOXIDE_PATH%common\data.txt ( COPY /y nul %DIOXIDE_PATH%common\data.txt >nul )
-        
-        IF NOT "%1"==".." (
-
-            ECHO %CD%\%1>>%DIOXIDE_PATH%common\data.txt
-
-        )
+        CALL :ADD_COMMON
+        GOTO :CLOSE_RUN
 
     ) ELSE (
 
@@ -78,22 +76,27 @@ IF "%1"=="" ( CD %userprofile% ) ELSE (
         IF EXIST %1\ (
 
             CD /d %1>nul
-
-            IF NOT EXIST %DIOXIDE_COMMON% ( COPY /y nul %DIOXIDE_COMMON% >nul )
-            
-            ECHO %1>>%DIOXIDE_COMMON%
+            CALL :ADD_COMMON
+            GOTO :CLOSE_RUN
 
         ) ELSE (
 
-            @REM TODO CHECK FULL PATH
-            @REM TODO CHECK IF NOT IN COMMON FOLDER
-            ECHO Dioxide: No match found
+            : Check if theres any match on common
+            FOR /F "TOKENS=*" %%a IN ('FINDSTR /R /I "%*" "%DIOXIDE_COMMON%"') DO (
+                
+                SET MATCH=%%a
+                CD %MATCH%
+                GOTO :CLOSE_RUN
+
+            )
 
         )
 
     )
 
 )
+            
+ECHO Dioxide: No match found
 
 GOTO :CLOSE_RUN
 
@@ -149,17 +152,17 @@ IF "%1"=="-fi" GOTO :CONTINUE_INSTALL
 IF EXIST %DIOXIDE_PATH%bin\d.bat SET DIOXIDE_CHECK=d.bat
 IF EXIST %DIOXIDE_PATH%bin\di.bat ( SET DIOXIDE_CHECK=di.bat ) ELSE ( GOTO :INSTALL)
 
-FOR /f "tokens=2 delims==" %%a IN ('findstr /C:"SET VERSION=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
+FOR /f "TOKENS=2" %%a IN ('FINDSTR /C:"SET VERSION=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
     SET INSTALLED_VERSION=%%a
 
-    FOR /f "tokens=2 delims==" %%a IN ('findstr /C:"SET BUILD=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
+    FOR /f "TOKENS=2" %%a IN ('FINDSTR /C:"SET BUILD=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
         SET INSTALLED_BUILD=%%a
-        GOTO :BREAK
+        GOTO :BREAK1
     )
 
 )
 
-:BREAK
+:BREAK1
 
 IF DEFINED INSTALLED_VERSION (
 
@@ -314,6 +317,11 @@ GOTO :EOF
 IF EXIST %DIOXIDE_PATH%.create_back ( DEL %DIOXIDE_PATH%.create_back ) ELSE (  COPY /y nul %DIOXIDE_PATH%.create_back >nul )
 GOTO :EOF
 
+:ADD_COMMON
+IF NOT EXIST %DIOXIDE_COMMON% ( COPY /y nul %DIOXIDE_COMMON% >nul )
+IF NOT "%1"==".." (ECHO %CD%\%1>>%DIOXIDE_COMMON%)
+GOTO :EOF
+
 @REM ========== CLOSE SECTION ==========
 
 : Exit script but not close CMD
@@ -324,5 +332,7 @@ CLS
 : Exit script but not close CMD and dont clean screen
 :CLOSE_RUN
 
-TITLE %PR_TITLE%
+@REM TODO UPDATE RANK SERVICE
+
+TITLE %CD%
 @ECHO ON
