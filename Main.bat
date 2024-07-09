@@ -6,8 +6,8 @@
 @REM ========== CONFIG SECTION ==========
 
 : Variables
-SET BUILD=70813
-SET VERSION=0.6.0
+SET BUILD=70910
+SET VERSION=0.7.0
 SET VERSION_STATUS=ALPHA
 SET DIOXIDE_PATH=%LOCALAPPDATA%\Hppsrc\Dioxide\
 SET DIOXIDE_COMMON=%DIOXIDE_PATH%common\data.txt
@@ -18,7 +18,7 @@ IF "%1"=="-i" GOTO :PREINSTALL          @REM Install
 IF "%1"=="-hd" GOTO :HELP               @REM Help msg with extra commands
 
 IF "%1"=="-c" ( DEL %DIOXIDE_COMMON%>nul 2>&1 & ECHO Dioxide: Folder registry deleted & GOTO :EOF ) & @REM Deletes the folder registry
-IF "%1"=="-v" ( ECHO Dioxide %VERSION% ^(%BUILD%^) & GOTO :EOF )                                                & @REM Version
+IF "%1"=="-v" ( ECHO Dioxide %VERSION% ^(%BUILD%^) & GOTO :EOF )                                    & @REM Version
 
 IF "%1"=="-fi" GOTO :PREINSTALL         @REM Force install / same as force update
 IF "%1"=="-ig" GOTO :IGNORE_RUN         @REM Ignore path and run Dioxide everywhere (toggleable)
@@ -44,18 +44,21 @@ IF "%~d0%~p0"=="%DIOXIDE_PATH%bin\" ( GOTO :PRERUN ) ELSE (
 :PRERUN
 
 : Run normal dioxide 
-IF ["%~n0"]==["d"] (
-    GOTO :D_RUN
-)
+IF ["%~n0"]==["d"] ( GOTO :D_RUN )
 
 : Run interactive dioxide
-IF ["%~n0"]==["di"] (
-    GOTO :DI_RUN
-)
+IF ["%~n0"]==["di"] ( GOTO :DI_RUN )
 
 : Run d functions
 :D_RUN
 
+: Open explorer here
+IF "%1"=="." ( START . )
+
+: Open cmd here
+IF "%1"=="..." ( START CMD )
+
+: Main d function
 IF "%1"=="" ( 
 
     CD %userprofile%
@@ -64,7 +67,7 @@ IF "%1"=="" (
 ) ELSE (
 
     : Check if folder is on same dir
-    IF EXIST %CD%\%1\ (
+    IF EXIST %CD%\%1 (
 
         CD %CD%\%1>nul
         CALL :ADD_COMMON
@@ -73,7 +76,7 @@ IF "%1"=="" (
     ) ELSE (
 
         : Check if folder is a dir
-        IF EXIST %1\ (
+        IF EXIST %1 (
 
             CD /d %1>nul
             CALL :ADD_COMMON
@@ -85,7 +88,7 @@ IF "%1"=="" (
             FOR /F "TOKENS=*" %%a IN ('FINDSTR /R /I "%*" "%DIOXIDE_COMMON%"') DO (
                 
                 SET MATCH=%%a
-                CD %MATCH%
+                CD /d %MATCH%
                 GOTO :CLOSE_RUN
 
             )
@@ -95,7 +98,7 @@ IF "%1"=="" (
     )
 
 )
-            
+
 ECHO Dioxide: No match found
 
 GOTO :CLOSE_RUN
@@ -120,6 +123,7 @@ NET SESSION >nul 2>&1
 IF %ERRORLEVEL% == 0 (
     ECHO.
 ) ELSE (
+
     ECHO Not running as administrator, restarting script.
     TIMEOUT /T 1 /NOBREAK > nul
         
@@ -140,6 +144,7 @@ IF %ERRORLEVEL% == 0 (
     "%temp%\elevate.vbs"
     DEL "%temp%\elevate.vbs"
     EXIT
+
 )
 
 CLS
@@ -149,13 +154,13 @@ CLS
 
 IF "%1"=="-fi" GOTO :CONTINUE_INSTALL
 
-IF EXIST %DIOXIDE_PATH%bin\d.bat SET DIOXIDE_CHECK=d.bat
+IF EXIST %DIOXIDE_PATH%bin\d.bat ( SET DIOXIDE_CHECK=d.bat )
 IF EXIST %DIOXIDE_PATH%bin\di.bat ( SET DIOXIDE_CHECK=di.bat ) ELSE ( GOTO :INSTALL)
 
-FOR /f "TOKENS=2" %%a IN ('FINDSTR /C:"SET VERSION=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
+FOR /f "TOKENS=2 delims==" %%a IN ('FINDSTR /C:"SET VERSION=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
     SET INSTALLED_VERSION=%%a
 
-    FOR /f "TOKENS=2" %%a IN ('FINDSTR /C:"SET BUILD=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
+    FOR /f "TOKENS=2 delims==" %%a IN ('FINDSTR /C:"SET BUILD=" "%DIOXIDE_PATH%bin\%DIOXIDE_CHECK%"') DO (
         SET INSTALLED_BUILD=%%a
         GOTO :BREAK1
     )
