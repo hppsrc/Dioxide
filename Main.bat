@@ -6,11 +6,11 @@
 @REM ========== CONFIG SECTION ==========
 
 : Variables
-SET BUILD=70910
-SET VERSION=0.7.0
+SET BUILD=71319
+SET VERSION=0.8.0
 SET VERSION_STATUS=ALPHA
 SET DIOXIDE_PATH=%LOCALAPPDATA%\Hppsrc\Dioxide\
-SET DIOXIDE_COMMON=%DIOXIDE_PATH%common\data.txt
+SET DIOXIDE_COMMON=%DIOXIDE_PATH%common\
 
 : Check args
 IF "%1"=="-h" GOTO :HELP                @REM Help msg
@@ -26,11 +26,11 @@ IF "%1"=="-d" GOTO :DEV_MODE            @REM Enable echoing (toogleable)
 IF "%1"=="-a" GOTO :ADM_MODE            @REM Disable admin priv for install (toogleable)
 IF "%1"=="-b" GOTO :CREATE_BK           @REM Enable create backups for old builds (toogleable)
 
-: Check if .dioxide_run exist run dioxide as normal
-IF EXIST "%DIOXIDE_PATH%.dioxide_run" GOTO :RUN
-
 : Check if .enable_dev exist and enable echoing
 IF EXIST "%DIOXIDE_PATH%.enable_dev" ECHO ON
+
+: Check if .dioxide_run exist run dioxide as normal
+IF EXIST "%DIOXIDE_PATH%.dioxide_run" GOTO :D_RUN
 
 : Check path ("Is installed?")
 IF "%~d0%~p0"=="%DIOXIDE_PATH%bin\" ( GOTO :PRERUN ) ELSE (
@@ -58,45 +58,30 @@ IF "%1"=="." ( START . )
 : Open cmd here
 IF "%1"=="..." ( START CMD )
 
+: Get name of last folder in arg
+FOR %%i in ("%1") DO SET "FINAL_PATH=%%~nxi"
+
 : Main d function
 IF "%1"=="" ( 
 
-    CD %userprofile%
+    CD %userprofile%>nul 2>&1
     GOTO :CLOSE_RUN
 
 ) ELSE (
 
-    : Check if folder is on same dir
-    IF EXIST %CD%\%1 (
+    : Check if folder is on same dir or is a full path
+    IF EXIST "%1" (
 
-        CD %CD%\%1>nul
+        CD /d %1>nul 2>&1
         CALL :ADD_COMMON
         GOTO :CLOSE_RUN
 
-    ) ELSE (
+    )  ELSE (
 
-        : Check if folder is a dir
-        IF EXIST %1 (
-
-            CD /d %1>nul
-            CALL :ADD_COMMON
-            GOTO :CLOSE_RUN
-
-        ) ELSE (
-
-            : Check if theres any match on common
-            FOR /F "TOKENS=*" %%a IN ('FINDSTR /R /I "%*" "%DIOXIDE_COMMON%"') DO (
-                
-                SET MATCH=%%a
-                CD /d %MATCH%
-                GOTO :CLOSE_RUN
-
-            )
-
-        )
+        ECHO >nul 2>&1
 
     )
-
+    
 )
 
 ECHO Dioxide: No match found
@@ -323,8 +308,8 @@ IF EXIST %DIOXIDE_PATH%.create_back ( DEL %DIOXIDE_PATH%.create_back ) ELSE (  C
 GOTO :EOF
 
 :ADD_COMMON
-IF NOT EXIST %DIOXIDE_COMMON% ( COPY /y nul %DIOXIDE_COMMON% >nul )
-IF NOT "%1"==".." (ECHO %CD%\%1>>%DIOXIDE_COMMON%)
+IF NOT EXIST %DIOXIDE_COMMON%.%FINAL_PATH% ( COPY /y nul %DIOXIDE_COMMON%.%FINAL_PATH% >nul 2>&1 )
+IF NOT "%1"==".." (ECHO %CD%\%1>>%DIOXIDE_COMMON%.%FINAL_PATH%>nul 2>&1)
 GOTO :EOF
 
 @REM ========== CLOSE SECTION ==========
